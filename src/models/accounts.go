@@ -2,46 +2,43 @@ package models
 
 import (
 	"fmt"
-	jwt "github.com/dgrijalva/jwt-go"
-	"github.com/jinzhu/gorm"
-	"github.com/satori/go.uuid"
 	u "go-contacts/src/utils"
-	"golang.org/x/crypto/bcrypt"
-	"gopkg.in/go-playground/validator.v9"
 	"os"
 	"time"
+
+	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/jinzhu/gorm"
+	"golang.org/x/crypto/bcrypt"
+	"gopkg.in/go-playground/validator.v9"
 )
 
 /*
 JWT claims struct
 */
 type Token struct {
-	UserId uint
+	Email string
 	jwt.StandardClaims
 }
 
 //a struct to rep user account
-type Account struct {
-	gorm.Model
-	Email    string `json:"email" validate:"required,email,min=6,contains=@" `
-	Password string `json:"password" validate:"required,min=8"`
-	Token    string `json:"token";sql:"-"`
-}
 
 type UserInfo struct {
-	ID        uuid.UUID  `gorm:"type:uuid;primary_key;"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"update_at"`
-	DeletedAt *time.Time `sql:"index" json:"deleted_at"`
-	Email     string     `json:"email" validate:"required,email,min=6,contains=@" `
-	Password  string     `json:"password" validate:"required,min=8"`
-	Token     string     `json:"token";sql:"-"`
+	Email              string    `json:"email" validate:"required,email,min=6,contains=@" gorm:"type:varchar(50);primary_key" `
+	Password           string    `json:"password" validate:"required,min=8"`
+	Username           string    `json:"username" validate:"required" gorm:"type:varchar(100)"`
+	ID                 uint      `gorm:"AUTO_INCREMENT"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"update_at"`
+	SecretKey          string    `json:"secretkey"`
+	ApiKey             string    `json:"apikey"`
+	EmailVerified      bool      `gorm:"default:'false'"`
+	OperationSecretKey string    `gorm:"default:'-'"`
 }
 
 var validate *validator.Validate
 
 //Validate incoming user details...
-func (account *Account) Validate() (map[string]interface{}, bool) {
+func (account *UserInfo) Validate() (map[string]interface{}, bool) {
 
 	validate = validator.New()
 	validateErr := validate.Struct(account)
@@ -59,10 +56,10 @@ func (account *Account) Validate() (map[string]interface{}, bool) {
 	}
 
 	//Email must be unique
-	temp := &Account{}
+	temp := &UserInfo{}
 
 	//check for errors and duplicate emails
-	err := GetDB().Table("accounts").Where("email = ?", account.Email).First(temp).Error
+	err := GetDB().Table("user_infos").Where("email = ?", account.Email).First(temp).Error
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return u.Message(false, "Connection error. Please retry"), false
 	}
@@ -73,7 +70,7 @@ func (account *Account) Validate() (map[string]interface{}, bool) {
 	return u.Message(false, "Requirement passed"), true
 }
 
-func (account *Account) Create() map[string]interface{} {
+func (account *UserInfo) Create() map[string]interface{} {
 
 	if resp, ok := account.Validate(); !ok {
 		return resp
@@ -81,7 +78,11 @@ func (account *Account) Create() map[string]interface{} {
 
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(account.Password), bcrypt.DefaultCost)
 	account.Password = string(hashedPassword)
-
+	// verified := Account{Email: account.Email, Password: account.Password, Username: account.Username}
+	// temp := &UserInfo{}
+	// temp.Email = account.Email
+	// temp.Password = account.Password
+	// temp.Username = account.Username
 	GetDB().Create(account)
 
 	if account.ID <= 0 {
@@ -89,7 +90,8 @@ func (account *Account) Create() map[string]interface{} {
 	}
 
 	//Create new JWT token for the newly registered account
-	tk := &Token{UserId: account.ID}
+	tk := &Token{Email: account.Email}
+	// secretInfo := jwt.MapClaims{"secret": "hehe", "nbf": time.Now()}
 	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), tk)
 	tokenString, _ := token.SignedString([]byte(os.Getenv("token_password")))
 	// account.Token = tokenString
@@ -104,8 +106,8 @@ func (account *Account) Create() map[string]interface{} {
 
 func Login(email, password string) map[string]interface{} {
 
-	account := &Account{}
-	err := GetDB().Table("accounts").Where("email = ?", email).First(account).Error
+	account := &UserInfo{}
+	err := GetDB().Table("user_infos").Where("email = ?", email).First(account).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return u.Message(false, "Email address not found")
@@ -117,26 +119,26 @@ func Login(email, password string) map[string]interface{} {
 	if err != nil && err == bcrypt.ErrMismatchedHashAndPassword { //Password does not match!
 		return u.Message(false, "Invalid login credentials. Please try again")
 	}
+	// temp.account = account
 	//Worked! Logged In
 	account.Password = ""
 
 	//Create JWT token
-	tk := &Token{UserId: account.ID}
+	tk := &Token{Email: account.Email}
 	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), tk)
 	tokenString, _ := token.SignedString([]byte(os.Getenv("token_password")))
 	// account.Token = tokenString //Store the token in the response
 
 	resp := u.Message(true, "Logged In")
-	resp["account"] = account
 	resp["token"] = tokenString
 
 	return resp
 }
 
-func GetUser(u uint) *Account {
+func GetUser(u uint) *UserInfo {
 
-	acc := &Account{}
-	GetDB().Table("accounts").Where("id = ?", u).First(acc)
+	acc := &UserInfo{}
+	GetDB().Table("user_infos").Where("id = ?", u).First(acc)
 	if acc.Email == "" { //User not found!
 		return nil
 	}

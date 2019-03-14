@@ -3,17 +3,69 @@ package send
 import (
 	"errors"
 	"fmt"
-	"github.com/go-gomail/gomail"
-	"github.com/matcornic/hermes/v2"
-	"golang.org/x/crypto/ssh/terminal"
 	"io/ioutil"
 	"net/mail"
 	"os"
+
+	"github.com/go-gomail/gomail"
+	"github.com/matcornic/hermes/v2"
 )
 
 type example interface {
 	Email() hermes.Email
 	Name() string
+}
+
+// func GenerateSmtpConfig() (smtpConfig smtpAuthentication, options sendOptions) {
+
+// 	return smtpConfig, options
+// }
+
+func SendEmailResetPassword() {
+	h := hermes.Hermes{
+		Product: hermes.Product{
+			Name: "Hermes",
+			Link: "https://example-hermes.com/",
+			Logo: "http://www.duchess-france.org/wp-content/uploads/2016/01/gopher.png",
+		},
+	}
+	template := new(reset)
+
+	theme := new(hermes.Default)
+
+	h.Theme = theme
+
+	generateEmails(h, template.Email(), template.Name())
+	// smtpConfig, options = GenerateSmtpConfig()
+	port := 465
+	password := `ezbot5512`
+	SMTPUser := "support@ezbot.my"
+
+	smtpConfig := smtpAuthentication{
+		Server:         "sg2plcpnl0096.prod.sin2.secureserver.net",
+		Port:           port,
+		SenderEmail:    "support@ezbot.my",
+		SenderIdentity: "Alex Tay",
+		SMTPPassword:   password,
+		SMTPUser:       SMTPUser,
+	}
+	options := sendOptions{
+		To: "alex.tay@jonvi.com",
+	}
+	options.Subject = "Testing Hermes - Theme " + h.Theme.Name() + " - Example " + template.Name()
+	fmt.Printf("Sending email '%s'...\n", options.Subject)
+	htmlBytes, err := ioutil.ReadFile(fmt.Sprintf("%v/%v.%v.html", h.Theme.Name(), h.Theme.Name(), template.Name()))
+	if err != nil {
+		fmt.Println(err)
+	}
+	txtBytes, err := ioutil.ReadFile(fmt.Sprintf("%v/%v.%v.txt", h.Theme.Name(), h.Theme.Name(), template.Name()))
+	if err != nil {
+		fmt.Println(err)
+	}
+	err = send(smtpConfig, options, string(htmlBytes), string(txtBytes))
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func SendEmailVerification() {
@@ -41,19 +93,15 @@ func SendEmailVerification() {
 	h.Theme = theme
 
 	generateEmails(h, template.Email(), template.Name())
+	// smtpConfig, options = GenerateSmtpConfig()
+	port := 465
+	password := `ezbot5512`
+	SMTPUser := "support@ezbot.my"
 
-	port := 587
-	password := `Iamalextay96`
-	SMTPUser := "alextaygeeyang96@gmail.com"
-	if password == "" {
-		fmt.Printf("Enter SMTP password of '%s' account: ", SMTPUser)
-		bytePassword, _ := terminal.ReadPassword(0)
-		password = string(bytePassword)
-	}
 	smtpConfig := smtpAuthentication{
-		Server:         "smtp.gmail.com",
+		Server:         "sg2plcpnl0096.prod.sin2.secureserver.net",
 		Port:           port,
-		SenderEmail:    "alextaygeeyang96@gmail.com",
+		SenderEmail:    "support@ezbot.my",
 		SenderIdentity: "Alex Tay",
 		SMTPPassword:   password,
 		SMTPUser:       SMTPUser,
@@ -61,7 +109,6 @@ func SendEmailVerification() {
 	options := sendOptions{
 		To: "alex.tay@jonvi.com",
 	}
-
 	options.Subject = "Testing Hermes - Theme " + h.Theme.Name() + " - Example " + template.Name()
 	fmt.Printf("Sending email '%s'...\n", options.Subject)
 	htmlBytes, err := ioutil.ReadFile(fmt.Sprintf("%v/%v.%v.html", h.Theme.Name(), h.Theme.Name(), template.Name()))
@@ -83,7 +130,8 @@ func generateEmails(h hermes.Hermes, email hermes.Email, example string) {
 	// Generate the HTML template and save it
 	res, err := h.GenerateHTML(email)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+
 	}
 	err = os.MkdirAll(h.Theme.Name(), 0744)
 	if err != nil {
