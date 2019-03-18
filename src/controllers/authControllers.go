@@ -26,14 +26,17 @@ func CreateAccount(c *gin.Context) {
 			result <- gin.H{"status": false, "data": resp}
 			return
 		}
+
 		result <- gin.H{"status": true, "data": resp}
 	}()
 	resultedData := <-result
 	if resultedData["status"] == false {
 		c.JSON(http.StatusBadRequest, resultedData)
 		return
+	} else {
+		go hermes.SendEmailVerification()
+
 	}
-	go hermes.SendEmailVerification()
 	c.JSON(http.StatusOK, resultedData)
 
 }

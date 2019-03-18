@@ -88,11 +88,17 @@ func (account *UserInfo) Create() map[string]interface{} {
 	if account.ID <= 0 {
 		return u.Message(false, "Failed to create account, connection error.")
 	}
-
 	//Create new JWT token for the newly registered account
-	tk := &Token{Email: account.Email}
+	// claims := make(jwt.MapClaims)
+	// claims["exp"] = time.Now().Add(time.Hour * 10)
+	// tk := &Token{Email: account.Email, StandardClaims: claims}
 	// secretInfo := jwt.MapClaims{"secret": "hehe", "nbf": time.Now()}
-	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), tk)
+	// token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), secretInfo)
+	token := jwt.New(jwt.SigningMethodRS512)
+	claims := make(jwt.MapClaims)
+	claims["exp"] = time.Now().Add(time.Hour * 12)
+	claims["iat"] = time.Now()
+	token.Claims = claims
 	tokenString, _ := token.SignedString([]byte(os.Getenv("token_password")))
 	// account.Token = tokenString
 
