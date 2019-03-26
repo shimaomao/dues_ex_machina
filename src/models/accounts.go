@@ -37,6 +37,18 @@ type UserInfo struct {
 
 var validate *validator.Validate
 
+func generateJWT(Email string) *Token {
+	timeToExpire := time.Now().Add(time.Hour).Unix()
+	claims := &Token{
+		Email,
+		jwt.StandardClaims{
+			ExpiresAt: timeToExpire,
+			Issuer:    "verifyEmail",
+		},
+	}
+	return claims
+}
+
 //Validate incoming user details...
 func (account *UserInfo) Validate() (map[string]interface{}, bool) {
 
@@ -78,35 +90,29 @@ func (account *UserInfo) Create() map[string]interface{} {
 
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(account.Password), bcrypt.DefaultCost)
 	account.Password = string(hashedPassword)
+	claims := generateJWT(account.Email)
+
+	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), claims)
+
+	tokenString, _ := token.SignedString([]byte(os.Getenv("token_password")))
 	// verified := Account{Email: account.Email, Password: account.Password, Username: account.Username}
 	// temp := &UserInfo{}
 	// temp.Email = account.Email
 	// temp.Password = account.Password
 	// temp.Username = account.Username
+	account.OperationSecretKey = tokenString
+
 	GetDB().Create(account)
 
 	if account.ID <= 0 {
 		return u.Message(false, "Failed to create account, connection error.")
 	}
-	//Create new JWT token for the newly registered account
-	// claims := make(jwt.MapClaims)
-	// claims["exp"] = time.Now().Add(time.Hour * 10)
-	// tk := &Token{Email: account.Email, StandardClaims: claims}
-	// secretInfo := jwt.MapClaims{"secret": "hehe", "nbf": time.Now()}
-	// token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), secretInfo)
-	token := jwt.New(jwt.SigningMethodRS512)
-	claims := make(jwt.MapClaims)
-	claims["exp"] = time.Now().Add(time.Hour * 12)
-	claims["iat"] = time.Now()
-	token.Claims = claims
-	tokenString, _ := token.SignedString([]byte(os.Getenv("token_password")))
-	// account.Token = tokenString
 
 	account.Password = "" //delete password
 
+	account.OperationSecretKey = ""
 	response := u.Message(true, "Account has been created")
 	response["account"] = account
-	response["token"] = tokenString
 	return response
 }
 
@@ -120,7 +126,7 @@ func Login(email, password string) map[string]interface{} {
 		}
 		return u.Message(false, "Connection error. Please retry")
 	}
-
+\n
 	err = bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(password))
 	if err != nil && err == bcrypt.ErrMismatchedHashAndPassword { //Password does not match!
 		return u.Message(false, "Invalid login credentials. Please try again")
@@ -130,8 +136,9 @@ func Login(email, password string) map[string]interface{} {
 	account.Password = ""
 
 	//Create JWT token
-	tk := &Token{Email: account.Email}
-	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), tk)
+	claims := generateJWT(account.Email)
+
+	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), claims)
 	tokenString, _ := token.SignedString([]byte(os.Getenv("token_password")))
 	// account.Token = tokenString //Store the token in the response
 

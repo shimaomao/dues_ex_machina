@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	hermes "go-contacts/src/email/examples/send"
 	"go-contacts/src/models"
 	"net/http"
@@ -14,11 +15,15 @@ func ResetPassword(c *gin.Context) {
 }
 func CreateAccount(c *gin.Context) {
 	cCp := c.Copy()
+	fmt.Println(cCp)
+
 	result := make(chan gin.H)
 	go func() {
 		account := &models.UserInfo{}
 		if err := cCp.ShouldBindJSON(&account); err != nil {
-			cCp.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			fmt.Println(cCp)
+
+			result <- gin.H{"status": false, "error": err.Error()}
 			return
 		}
 		resp := account.Create()
@@ -48,7 +53,9 @@ var Authenticate = func(c *gin.Context) {
 		account := &models.UserInfo{}
 
 		if err := cCp.ShouldBindJSON(&account); err != nil {
-			cCp.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			result <- gin.H{"status": false, "error": err.Error()}
+
+			// cCp.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 

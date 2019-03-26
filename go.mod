@@ -6,6 +6,7 @@ require (
 	github.com/aokoli/goutils v1.1.0 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/domodwyer/mailyak v3.1.1+incompatible
+	github.com/gin-contrib/cors v0.0.0-20190301062745-f9e10995c85a
 	github.com/gin-contrib/sse v0.0.0-20190301062529-5545eab6dad3 // indirect
 	github.com/gin-gonic/gin v1.3.0
 	github.com/go-gomail/gomail v0.0.0-20160411212932-81ebce5c23df
@@ -33,8 +34,6 @@ require (
 	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
 	golang.org/x/net v0.0.0-20190310014029-b774fd8d5c0f // indirect
 	golang.org/x/sys v0.0.0-20190310054646-10058d7d4faa
-	gopkg.in/go-playground/validator.v8 v8.18.2 // indirect
 	gopkg.in/go-playground/validator.v9 v9.27.0
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df // indirect
-	gopkg.in/yaml.v2 v2.2.2 // indirect
 )
