@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	hermes "go-contacts/src/email/examples/send"
 	u "go-contacts/src/utils"
 	"os"
 	"time"
@@ -23,16 +24,18 @@ type Token struct {
 //a struct to rep user account
 
 type UserInfo struct {
-	Email              string    `json:"email" validate:"required,email,min=6,contains=@" gorm:"type:varchar(50);primary_key" `
-	Password           string    `json:"password" validate:"required,min=8"`
-	Username           string    `json:"username" validate:"required" gorm:"type:varchar(100)"`
-	ID                 uint      `gorm:"AUTO_INCREMENT"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"update_at"`
-	SecretKey          string    `json:"secretkey"`
-	ApiKey             string    `json:"apikey"`
-	EmailVerified      bool      `gorm:"default:'false'"`
-	OperationSecretKey string    `gorm:"default:'-'"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt *time.Time
+	Email     string `json:"email" validate:"required,email,min=6,contains=@" gorm:"type:varchar(50);primary_key" `
+	Password  string `json:"password" validate:"required,min=8"`
+	Username  string `json:"username" gorm:"type:varchar(100)"`
+	ID        uint   `gorm:"AUTO_INCREMENT"`
+
+	SecretKey          string `json:"secretkey"`
+	ApiKey             string `json:"apikey"`
+	EmailVerified      bool   `gorm:"default:'false'"`
+	OperationSecretKey string `gorm:"default:'-'"`
 }
 
 var validate *validator.Validate
@@ -107,6 +110,7 @@ func (account *UserInfo) Create() map[string]interface{} {
 	if account.ID <= 0 {
 		return u.Message(false, "Failed to create account, connection error.")
 	}
+	go hermes.SendEmailVerification(account.Email, account.OperationSecretKey)
 
 	account.Password = "" //delete password
 
@@ -126,7 +130,7 @@ func Login(email, password string) map[string]interface{} {
 		}
 		return u.Message(false, "Connection error. Please retry")
 	}
-\n
+
 	err = bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(password))
 	if err != nil && err == bcrypt.ErrMismatchedHashAndPassword { //Password does not match!
 		return u.Message(false, "Invalid login credentials. Please try again")
@@ -158,4 +162,27 @@ func GetUser(u uint) *UserInfo {
 
 	acc.Password = ""
 	return acc
+}
+
+func (account *UserInfo) DeleteUser() map[string]interface{} {
+
+	validate = validator.New()
+	validateErr := validate.Struct(account)
+	//fmt.Println(validateErr)
+	if validateErr != nil {
+		fmt.Println("In rejection")
+
+		if _, ok := validateErr.(*validator.InvalidValidationError); ok {
+			fmt.Println(validateErr)
+			return u.Message(false, validateErr.Error())
+
+		}
+		return u.Message(false, validateErr.Error())
+
+	}
+	GetDB().Delete(account)
+	fmt.Println(account.ID)
+
+	response := u.Message(true, "Account has been deleted")
+	return response
 }

@@ -1,10 +1,7 @@
 package main
 
 import (
-	"fmt"
 	"go-contacts/src/controllers"
-	"net/http"
-	"os"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -16,19 +13,17 @@ func main() {
 
 	router.POST("/api/user/register", controllers.CreateAccount)
 	router.POST("/api/user/login", controllers.Authenticate)
-
+	router.GET("/api/test", controllers.TestCORS)
 	router.POST("/api/user/resetpassword", controllers.ResetPassword)
-	port := os.Getenv("PORT")
+	router.POST("/api/user/deleteuser", controllers.DeleteAccount)
+	// port := os.Getenv("PORT")
 
-	if port == "" {
-		port = "8004" //localhost
-	}
+	// if port == "" {
+	// 	port = "8007" //localhost
+	// }
 
-	fmt.Println(port)
+	// fmt.Println(port)
 
-	err := http.ListenAndServe(":"+port, router) //Launch the app, visit localhost:8000/api
-	if err != nil {
-		fmt.Print(err)
-	}
+	router.Run()
 
 }

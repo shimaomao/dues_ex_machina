@@ -13,6 +13,11 @@ func ResetPassword(c *gin.Context) {
 	go hermes.SendEmailResetPassword()
 
 }
+func TestCORS(c *gin.Context) {
+	c.JSON(http.StatusOK, "Done")
+
+}
+
 func CreateAccount(c *gin.Context) {
 	cCp := c.Copy()
 	fmt.Println(cCp)
@@ -31,6 +36,8 @@ func CreateAccount(c *gin.Context) {
 			result <- gin.H{"status": false, "data": resp}
 			return
 		}
+		fmt.Println(resp)
+		// go hermes.SendEmailVerification(account.Email)
 
 		result <- gin.H{"status": true, "data": resp}
 	}()
@@ -39,10 +46,41 @@ func CreateAccount(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, resultedData)
 		return
 	} else {
-		go hermes.SendEmailVerification()
+
+		c.JSON(http.StatusOK, resultedData)
 
 	}
-	c.JSON(http.StatusOK, resultedData)
+
+}
+
+var DeleteAccount = func(c *gin.Context) {
+	cCp := c.Copy()
+	result := make(chan gin.H)
+	go func() {
+		account := &models.UserInfo{}
+		if err := cCp.ShouldBindJSON(&account); err != nil {
+			result <- gin.H{"status": false, "error": err.Error()}
+			return
+		}
+		resp := account.DeleteUser()
+		if resp["status"] == false {
+			result <- gin.H{"status": false, "data": resp}
+
+		} else {
+			result <- gin.H{"status": true, "data": resp}
+
+		}
+
+	}()
+	resultedData := <-result
+	if resultedData["status"] == false {
+		c.JSON(http.StatusBadRequest, resultedData)
+		return
+	} else {
+
+		c.JSON(http.StatusOK, resultedData)
+
+	}
 
 }
 

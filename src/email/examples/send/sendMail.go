@@ -68,7 +68,7 @@ func SendEmailResetPassword() {
 	}
 }
 
-func SendEmailVerification() {
+func SendEmailVerification(targetEmail string, urlToken string) {
 
 	h := hermes.Hermes{
 		Product: hermes.Product{
@@ -92,7 +92,7 @@ func SendEmailVerification() {
 	// }
 	h.Theme = theme
 
-	generateEmails(h, template.Email(), template.Name())
+	generateEmails(h, template.Email(urlToken), template.Name())
 	// smtpConfig, options = GenerateSmtpConfig()
 	port := 465
 	password := `ezbot5512`
@@ -107,7 +107,7 @@ func SendEmailVerification() {
 		SMTPUser:       SMTPUser,
 	}
 	options := sendOptions{
-		To: "alex.tay@jonvi.com",
+		To: targetEmail,
 	}
 	options.Subject = "Testing Hermes - Theme " + h.Theme.Name() + " - Example " + template.Name()
 	fmt.Printf("Sending email '%s'...\n", options.Subject)
