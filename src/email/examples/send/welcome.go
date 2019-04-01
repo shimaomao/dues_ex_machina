@@ -11,7 +11,7 @@ func (w *welcome) Name() string {
 	return "welcome"
 }
 
-func (w *welcome) Email(urlToken string) hermes.Email {
+func (w *welcome) Email(urlToken string, endPoint string, targetEmail string) hermes.Email {
 	return hermes.Email{
 		Body: hermes.Body{
 			Name: "Jon Snow",
@@ -27,7 +27,7 @@ func (w *welcome) Email(urlToken string) hermes.Email {
 					Instructions: "To get started with Hermes, please click here:",
 					Button: hermes.Button{
 						Text: "Confirm your account",
-						Link: "https://hermes-example.com/confirm?token=" + urlToken,
+						Link: endPoint + "/api/user/confirm?token=" + urlToken + "&email=" + targetEmail,
 					},
 				},
 			},

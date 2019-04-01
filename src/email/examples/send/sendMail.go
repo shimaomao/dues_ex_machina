@@ -91,8 +91,8 @@ func SendEmailVerification(targetEmail string, urlToken string) {
 	// 	new(hermes.Default),
 	// }
 	h.Theme = theme
-
-	generateEmails(h, template.Email(urlToken), template.Name())
+	endPoint := "http://localhost:8080"
+	generateEmails(h, template.Email(urlToken, endPoint, targetEmail), template.Name())
 	// smtpConfig, options = GenerateSmtpConfig()
 	port := 465
 	password := `ezbot5512`

@@ -7,7 +7,7 @@ Welcome to Hermes! We're very excited to have you on board.
 * Firstname: Jon
 * Lastname: Snow
 
-To get started with Hermes, please click here: https://hermes-example.com/confirm?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImFsZXh0YXlnZWV5YW5nOTZAZ21haWwuY29tIiwiZXhwIjoxNTUzOTEzMzA0LCJpc3MiOiJ2ZXJpZnlFbWFpbCJ9.9yw3AzkAjZYygGK8ZxSFhOp5vapTAPOP37bxULaCKLg
+To get started with Hermes, please click here: http://localhost:8080/api/user/confirm?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImFsZXh0YXlnZWV5YW5nOTZAZ21haWwuY29tIiwiZXhwIjoxNTU0MDIwMjc0LCJpc3MiOiJ2ZXJpZnlFbWFpbCJ9.ntwJsQjzk4hOPDYMoHtIubLG1PkaV78dGn_-a0kZ8-M&email=alextaygeeyang96@gmail.com
 
 Need help, or have questions? Just reply to this email, we'd love to help.
 

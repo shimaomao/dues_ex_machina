@@ -16,14 +16,11 @@ func main() {
 	router.GET("/api/test", controllers.TestCORS)
 	router.POST("/api/user/resetpassword", controllers.ResetPassword)
 	router.POST("/api/user/deleteuser", controllers.DeleteAccount)
-	// port := os.Getenv("PORT")
-
-	// if port == "" {
-	// 	port = "8007" //localhost
-	// }
-
-	// fmt.Println(port)
-
+	router.POST("/api/user/getuser", controllers.GetAccount)
+	router.POST("/api/user/addusersecret", controllers.AddClientSecrets)
+	router.GET("/api/user/confirm", controllers.VerifyEmail)
+	router.POST("/api/user/deleteusersecret", controllers.DeleteClientSecret)
+	router.POST("/api/user/getallusersecret", controllers.GetAllClientSecret)
 	router.Run()
 
 }

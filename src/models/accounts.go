@@ -21,21 +21,33 @@ type Token struct {
 	jwt.StandardClaims
 }
 
-//a struct to rep user account
+type ClientSecrets struct {
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	SecretName string `form :"secretName" json:"secretName" validate:"required" gorm:"primary_key"`
+	ApiKey     string `json:"apiKey" validate:"required"`
+	SecretKey  string `json:"secretKey" validate:"required"`
+	ID         uint   `gorm:"AUTO_INCREMENT"`
+	Email      string `form :"email" json:"email" validate:"required" gorm:"primary_key"`
+}
 
 type UserInfo struct {
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt *time.Time
-	Email     string `json:"email" validate:"required,email,min=6,contains=@" gorm:"type:varchar(50);primary_key" `
-	Password  string `json:"password" validate:"required,min=8"`
-	Username  string `json:"username" gorm:"type:varchar(100)"`
-	ID        uint   `gorm:"AUTO_INCREMENT"`
-
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	DeletedAt          *time.Time
+	Email              string `json:"email" validate:"required,email,min=6,contains=@" gorm:"type:varchar(50);primary_key" `
+	Password           string `json:"password" validate:"required,min=8"`
+	Username           string `json:"username" gorm:"type:varchar(100)"`
+	ID                 uint   `gorm:"AUTO_INCREMENT"`
 	SecretKey          string `json:"secretkey"`
 	ApiKey             string `json:"apikey"`
 	EmailVerified      bool   `gorm:"default:'false'"`
 	OperationSecretKey string `gorm:"default:'-'"`
+}
+
+type EmailVerification struct {
+	Token string `form:"token"`
+	Email string `form:"email"`
 }
 
 var validate *validator.Validate
@@ -85,6 +97,29 @@ func (account *UserInfo) Validate() (map[string]interface{}, bool) {
 	return u.Message(false, "Requirement passed"), true
 }
 
+func (client *ClientSecrets) DeleteClientSecrets() map[string]interface{} {
+	validate = validator.New()
+	validateErr := validate.Struct(client)
+	if validateErr != nil {
+		fmt.Println("In rejection")
+
+		if _, ok := validateErr.(*validator.InvalidValidationError); ok {
+			fmt.Println(validateErr)
+			return u.Message(false, validateErr.Error())
+
+		}
+		return u.Message(false, validateErr.Error())
+
+	}
+
+	err := GetDB().Table("client_secrets").Where("email = ? AND secret_name = ?", client.Email, client.SecretName).Delete(client).Error
+	if err != nil {
+		return u.Message(false, err.Error())
+	}
+	return u.Message(true, "secrets deleted successfully")
+
+}
+
 func (account *UserInfo) Create() map[string]interface{} {
 
 	if resp, ok := account.Validate(); !ok {
@@ -98,18 +133,17 @@ func (account *UserInfo) Create() map[string]interface{} {
 	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), claims)
 
 	tokenString, _ := token.SignedString([]byte(os.Getenv("token_password")))
-	// verified := Account{Email: account.Email, Password: account.Password, Username: account.Username}
-	// temp := &UserInfo{}
-	// temp.Email = account.Email
-	// temp.Password = account.Password
-	// temp.Username = account.Username
+
 	account.OperationSecretKey = tokenString
 
-	GetDB().Create(account)
+	if err := GetDB().Create(account).Error; err != nil {
+		return u.Message(false, err.Error())
 
-	if account.ID <= 0 {
-		return u.Message(false, "Failed to create account, connection error.")
 	}
+
+	// if account.ID <= 0 {
+	// 	return u.Message(false, "Failed to create account. ")
+	// }
 	go hermes.SendEmailVerification(account.Email, account.OperationSecretKey)
 
 	account.Password = "" //delete password
@@ -120,18 +154,50 @@ func (account *UserInfo) Create() map[string]interface{} {
 	return response
 }
 
-func Login(email, password string) map[string]interface{} {
+func CheckOperationSecretKey(email string, token string) map[string]interface{} {
+	isFound, account := GetUser(email)
+	if isFound == false {
+		return u.Message(false, "account not found")
 
-	account := &UserInfo{}
-	err := GetDB().Table("user_infos").Where("email = ?", email).First(account).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return u.Message(false, "Email address not found")
-		}
-		return u.Message(false, "Connection error. Please retry")
+	}
+	if account.EmailVerified == false && account.OperationSecretKey == token {
+		account.OperationSecretKey = ""
+		account.EmailVerified = true
+	} else {
+		return u.Message(false, "account email has already been verified")
+
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(password))
+	err := GetDB().Table("user_infos").Where("email = ?", email).Update(UserInfo{EmailVerified: true, OperationSecretKey: "-"}).Error
+	if err != nil {
+		return u.Message(false, err.Error())
+
+	}
+	return u.Message(true, "account email successfully verified")
+
+}
+
+func (client *ClientSecrets) GetAllClientSecrets() (bool, []ClientSecrets) {
+	secrets := []ClientSecrets{}
+	err := GetDB().Table("client_secrets").Where("email = ? ", client.Email).Find(&secrets).Error
+	if err != nil {
+		return false, secrets
+
+	}
+	return true, secrets
+
+}
+
+func Login(email, password string) map[string]interface{} {
+
+	// account := UserInfo{}
+	isFound, account := GetUser(email)
+	if isFound == false {
+		return u.Message(false, "account not found")
+
+	}
+
+	err := bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(password))
 	if err != nil && err == bcrypt.ErrMismatchedHashAndPassword { //Password does not match!
 		return u.Message(false, "Invalid login credentials. Please try again")
 	}
@@ -152,16 +218,46 @@ func Login(email, password string) map[string]interface{} {
 	return resp
 }
 
-func GetUser(u uint) *UserInfo {
+func GetUser(email string) (bool, UserInfo) {
+	respAcc := &UserInfo{}
+	outputAcc := *respAcc
 
-	acc := &UserInfo{}
-	GetDB().Table("user_infos").Where("id = ?", u).First(acc)
-	if acc.Email == "" { //User not found!
-		return nil
+	err := GetDB().Table("user_infos").Where("email = ?", email).First(&outputAcc).Error
+
+	if err == gorm.ErrRecordNotFound {
+		fmt.Println("Record not found")
+		return false, outputAcc
 	}
+	//copy a new struct
+	outputAcc.Password = ""
+	return true, outputAcc
+}
 
-	acc.Password = ""
-	return acc
+func (client *ClientSecrets) AddClientSecrets() map[string]interface{} {
+	validate = validator.New()
+	validateErr := validate.Struct(client)
+	if validateErr != nil {
+		fmt.Println("In rejection")
+
+		if _, ok := validateErr.(*validator.InvalidValidationError); ok {
+			fmt.Println(validateErr)
+			return u.Message(false, validateErr.Error())
+
+		}
+		return u.Message(false, validateErr.Error())
+
+	}
+	isFound, _ := GetUser(client.Email)
+	if isFound == false {
+		return u.Message(false, "Account email not found")
+
+	}
+	err := GetDB().Table("client_secrets").Create(client).Error
+	if err != nil {
+		return u.Message(false, err.Error())
+	}
+	return u.Message(true, "secrets added successfully")
+
 }
 
 func (account *UserInfo) DeleteUser() map[string]interface{} {
@@ -180,9 +276,21 @@ func (account *UserInfo) DeleteUser() map[string]interface{} {
 		return u.Message(false, validateErr.Error())
 
 	}
-	GetDB().Delete(account)
-	fmt.Println(account.ID)
 
+	isFound, queryResp := GetUser(account.Email)
+	if isFound == false {
+		return u.Message(false, "Account not found")
+
+	}
+	fmt.Println(queryResp)
+	err := GetDB().Delete(account).Error
+	if err != nil {
+		return u.Message(false, err.Error())
+
+	}
 	response := u.Message(true, "Account has been deleted")
+
+	//response := make(map[string]interface{})
+
 	return response
 }
