@@ -21,6 +21,7 @@ func main() {
 	router.GET("/api/user/confirm", controllers.VerifyEmail)
 	router.POST("/api/user/deleteusersecret", controllers.DeleteClientSecret)
 	router.POST("/api/user/getallusersecret", controllers.GetAllClientSecret)
+	MarketWatch()
 	router.Run()
 
 }

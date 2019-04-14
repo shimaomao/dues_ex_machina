@@ -3,6 +3,7 @@ package controllers
 import (
 	"fmt"
 	hermes "go-contacts/src/email/examples/send"
+
 	"go-contacts/src/models"
 	"net/http"
 
@@ -255,10 +256,19 @@ var Authenticate = func(c *gin.Context) {
 			return
 		}
 
-		resp := models.Login(account.Email, account.Password)
-		result <- gin.H{"data": resp}
+		isLogin, resp := models.Login(account.Email, account.Password)
+
+		result <- gin.H{"status": isLogin, "data": resp}
 
 	}()
-	c.JSON(http.StatusOK, <-result)
+	resultedData := <-result
+	if resultedData["status"] == false {
+		c.JSON(http.StatusBadRequest, resultedData)
+		return
+	} else {
+
+		c.JSON(http.StatusOK, resultedData)
+
+	}
 
 }

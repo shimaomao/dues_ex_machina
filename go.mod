@@ -36,4 +36,5 @@ require (
 	golang.org/x/sys v0.0.0-20190310054646-10058d7d4faa
 	gopkg.in/go-playground/validator.v9 v9.27.0
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df // indirect
+	gopkg.in/resty.v1 v1.12.0
 )

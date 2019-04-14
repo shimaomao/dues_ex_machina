@@ -21,6 +21,20 @@ type Token struct {
 	jwt.StandardClaims
 }
 
+type MarketOrder struct {
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	Email      string  `json:"email" validate:"required" `
+	SecretName string  `json:"secretName" validate:"required" `
+	Price      float64 `json:"price" validate:"required"`
+	ApiKey     string  `json:"apiKey" validate:"required"`
+	SecretKey  string  `json:"secretKey" validate:"required"`
+	Platform   string  `json:"platform" validate:"required"`
+	Indicator  string  `json:"indicator" validate:"required"`
+	Period     int     `json:"period" validate:"required"`
+	Pair       string  `json:"pair" validate:"required"`
+}
+
 type ClientSecrets struct {
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
@@ -188,18 +202,20 @@ func (client *ClientSecrets) GetAllClientSecrets() (bool, []ClientSecrets) {
 
 }
 
-func Login(email, password string) map[string]interface{} {
+func Login(email, password string) (bool, map[string]interface{}) {
 
 	// account := UserInfo{}
 	isFound, account := GetUser(email)
 	if isFound == false {
-		return u.Message(false, "account not found")
+		return false, u.Message(false, "account not found")
 
 	}
+	fmt.Println("email stored password : ", account.Password)
+	fmt.Println("req password : ", password)
 
 	err := bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(password))
 	if err != nil && err == bcrypt.ErrMismatchedHashAndPassword { //Password does not match!
-		return u.Message(false, "Invalid login credentials. Please try again")
+		return false, u.Message(false, "Invalid login credentials. Please try again")
 	}
 	// temp.account = account
 	//Worked! Logged In
@@ -215,7 +231,7 @@ func Login(email, password string) map[string]interface{} {
 	resp := u.Message(true, "Logged In")
 	resp["token"] = tokenString
 
-	return resp
+	return true, resp
 }
 
 func GetUser(email string) (bool, UserInfo) {
@@ -229,7 +245,7 @@ func GetUser(email string) (bool, UserInfo) {
 		return false, outputAcc
 	}
 	//copy a new struct
-	outputAcc.Password = ""
+	// outputAcc.Password = ""
 	return true, outputAcc
 }
 
