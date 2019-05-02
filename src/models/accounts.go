@@ -21,20 +21,6 @@ type Token struct {
 	jwt.StandardClaims
 }
 
-type MarketOrder struct {
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	Email      string  `json:"email" validate:"required" `
-	SecretName string  `json:"secretName" validate:"required" `
-	Price      float64 `json:"price" validate:"required"`
-	ApiKey     string  `json:"apiKey" validate:"required"`
-	SecretKey  string  `json:"secretKey" validate:"required"`
-	Platform   string  `json:"platform" validate:"required"`
-	Indicator  string  `json:"indicator" validate:"required"`
-	Period     int     `json:"period" validate:"required"`
-	Pair       string  `json:"pair" validate:"required"`
-}
-
 type ClientSecrets struct {
 	CreatedAt  time.Time
 	UpdatedAt  time.Time

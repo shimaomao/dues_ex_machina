@@ -1,27 +1,56 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"go-contacts/src/models"
 	"strconv"
-	"strings"
 	"time"
+	"github.com/gin-gonic/gin"
 
-	"gopkg.in/resty.v1"
+	"github.com/adshao/go-binance"
 )
-
-type OuterLayer struct {
-	Msg []RSIData
-}
-
-type RSIData struct {
-	Data [][]string
-}
 
 type MarketOrder struct {
 	Symbol   string  `json:"symbol"`
 	Side     string  `json:"side"`
 	T        string  `json:"type"`
 	Quantity float64 `json:"quantity"`
+}
+type Platform struct {
+	Symbols []Symbol
+}
+
+type Symbol struct {
+	Symbol string `json:"symbol"`
+	Status string `json:"status"`
+}
+type CurrentIndicator struct {
+	Symbol string  `json:"symbol"`
+	Value  float64 `json:"value"`
+}
+
+func ExcecuteMarketOrder(symbol string, side string, quantity string) {
+	var (
+		apiKey    = "9cBb2iRgQOKzQMH9PxWALRXuwU6Ey0mNBKKzHmZUO9cLUTgCd7KtgTKLP4CDYJnR"
+		secretKey = "pBHk1F2vSUfIkCVQQMd4ds5suA93tm5wPj3jPCmXSHulhy2rhHp0pFSoEWdvIrE4"
+	)
+	marketOrderSide := binance.SideTypeBuy
+	if side == "buy" {
+		marketOrderSide = binance.SideTypeBuy
+	} else if side == "sell" {
+		marketOrderSide = binance.SideTypeSell
+	}
+
+	client := binance.NewClient(apiKey, secretKey)
+	order, err := client.NewCreateOrderService().Symbol(symbol).TimeInForce(binance.TimeInForceGTC).Price("0.0255").
+		Side(marketOrderSide).Type(binance.OrderTypeLimit).Quantity(quantity).Do(context.Background())
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("Order API response")
+	fmt.Println(order)
 }
 
 func SetInterval(someFunc func(), milliseconds int, async bool) chan bool {
@@ -63,185 +92,176 @@ func SetInterval(someFunc func(), milliseconds int, async bool) chan bool {
 
 }
 
+func UpdateRSI(symbol string, period int) CurrentIndicator {
+	var (
+		apiKey    = "9cBb2iRgQOKzQMH9PxWALRXuwU6Ey0mNBKKzHmZUO9cLUTgCd7KtgTKLP4CDYJnR"
+		secretKey = "pBHk1F2vSUfIkCVQQMd4ds5suA93tm5wPj3jPCmXSHulhy2rhHp0pFSoEWdvIrE4"
+	)
+	client := binance.NewClient(apiKey, secretKey)
+
+	klines, err := client.NewKlinesService().Symbol(symbol).Limit(period).Interval("1m").Do(context.Background())
+	if err != nil {
+		fmt.Println(err)
+		return CurrentIndicator{}
+	}
+
+	gainList := make([]float64, 0)
+	lossList := make([]float64, 0)
+	totalGain := 0.0
+	totalLoss := 0.0
+	// fmt.Println("kline length ", len(klines))
+	for _, k := range klines {
+
+		startPrice, _ := strconv.ParseFloat(k.Open, 64)
+		endPrice, _ := strconv.ParseFloat(k.Close, 64)
+		diff := endPrice - startPrice
+
+		if diff > 0 {
+			gainList = append(gainList, diff)
+		} else {
+			lossList = append(lossList, diff)
+
+		}
+
+	}
+
+	for _, elem := range gainList {
+		totalGain += elem
+	}
+	for _, elem := range lossList {
+		totalLoss += elem
+	}
+
+	avgGain := totalGain / float64(period)
+	avgLoss := totalLoss / float64(period)
+	avgLoss *= -1
+	if avgLoss == 0 {
+		avgLoss = 1
+	}
+	RSI := 100 - 100/(1+(avgGain/avgLoss))
+	if RSI < 0 || RSI > 100 {
+		fmt.Println(" Error  RSI : ", RSI)
+
+	}
+	//fmt.Println("   Symbol  : ", symbol)
+	//fmt.Println("   RSI : ", RSI)
+	output := CurrentIndicator{Symbol: symbol, Value: RSI}
+	return output
+}
+
+
+
 func MarketWatch() {
 
-	// A counter for the number of times we print
-	// printed := 0
-
-	// We call set interval to print Hello World forever
-	// every 1 second
-	// clear := make(chan float64)
-	// var gainList []float64
-	// var lossList []float64
 	period := 14
-	isOrderExecuted := false
+	// isOrderExecuted := false
 
 	SetInterval(func() {
-
-		go func() {
-			resp, _ := resty.R().Get("https://api.binance.com/api/v1/klines?symbol=BTCUSDT&interval=1m&limit=" + strconv.Itoa(period))
-			// fmt.Println("\nhttps://api.binance.com/api/v1/klines?symbol=BTCUSDT&interval=1m&limit=" + strconv.Itoa(period))
-			// explore response object
-			// fmt.Printf("\nError: %v", err)
-			fmt.Printf("\nResponse Status Code: %v", resp.StatusCode())
-			fmt.Printf("\nResponse Status: %v", resp.Status())
-			fmt.Printf("\nResponse Time: %v", resp.Time())
-			fmt.Println("\nResponse Received At: %v", resp.ReceivedAt())
-			// k := &[]RSIData{}
-			// _ = json.Unmarshal(resp.Body(), &k)
-			// // fmt.Println(string(resp.Body()))
-			rt := string(resp.Body())
-			rt = rt[1 : len(rt)-2]
-			rt = strings.Replace(rt, "[", "", 10)
-			rt = strings.Replace(rt, "]", "", 10)
-			rt = strings.Replace(rt, `"`, "", 100)
-			arrRt := strings.Split(rt, ",")
-			arrRt = append(arrRt, " ")
-			allCandles := make([][]string, 0)
-			singleCandle := make([]string, 0)
-			for index, element := range arrRt {
-				if index%12 != 0 {
-					singleCandle = append(singleCandle, element)
-				} else if index != 0 && index%12 == 0 {
-
-					allCandles = append(allCandles, singleCandle)
-
-					singleCandle = make([]string, 0)
-					singleCandle = append(singleCandle, element)
-
-				} else if index == 0 && index%12 == 0 {
-					singleCandle = append(singleCandle, element)
-
-				}
-
+		fmt.Println("New Period =======================================")
+		allSymbols := models.GetAllSymbols("binance")
+		//allRSIVal := []CurrentIndicator{}
+		allRSIVal := make (gin.H)
+		for _, symbol := range allSymbols {
+			output := UpdateRSI(symbol.Symbol, period)
+			gotSymbol := symbol.Symbol
+			allRSIVal[gotSymbol ] = output.Value;
+		}
+		// a ,_ :=  strconv.ParseFloat(allRSIVal[],64)
+		// fmt.Println(a < 20)
+	
+		//class
+	
+		_,allBuyOrder := models.GetAllMarketOrderBySideAndIndicator("buy" , "RSI")
+		_,allSellOrder := models.GetAllMarketOrderBySideAndIndicator("sell" , "RSI")
+		for _,buyOrder := range(allBuyOrder){
+			k := allRSIVal[ buyOrder.Symbol].(float64)	
+		
+			if k < buyOrder.Threshold{
+				fmt.Println("Buy order executed")
+				fmt.Println("current RSI :" , k)
+				fmt.Println("buyOrder Threshold ", buyOrder.Threshold)
+				fmt.Println(buyOrder)
 			}
+			
+		}
 
-			// fmt.Println(allCandles)
-			gainList := make([]float64, 0)
-			lossList := make([]float64, 0)
-			totalGain := 0.0
-			totalLoss := 0.0
-			for _, elem := range allCandles {
-				startPrice, _ := strconv.ParseFloat(elem[1], 64)
-				endPrice, _ := strconv.ParseFloat(elem[4], 64)
-				diff := endPrice - startPrice
-				if diff > 0 {
-					gainList = append(gainList, diff)
-				} else {
-					lossList = append(lossList, diff)
-
-				}
-
+		for _,sellOrder := range (allSellOrder){
+			k := allRSIVal[ sellOrder.Symbol].(float64)	
+		
+			if k > sellOrder.Threshold{
+				fmt.Println("Sell order executed")
+				fmt.Println("current RSI :" , k)
+				fmt.Println("sellOrder Threshold ", sellOrder.Threshold)
+				fmt.Println(sellOrder)
 			}
-			for _, elem := range gainList {
-				totalGain += elem
-			}
-			for _, elem := range lossList {
-				totalLoss += elem
-			}
+		}
+		// go func() {
+		// 	symbol := "MCOETH"
+		// 	var (
+		// 		apiKey    = "9cBb2iRgQOKzQMH9PxWALRXuwU6Ey0mNBKKzHmZUO9cLUTgCd7KtgTKLP4CDYJnR"
+		// 		secretKey = "pBHk1F2vSUfIkCVQQMd4ds5suA93tm5wPj3jPCmXSHulhy2rhHp0pFSoEWdvIrE4"
+		// 	)
+		// 	client := binance.NewClient(apiKey, secretKey)
 
-			avgGain := totalGain / float64(period)
-			avgLoss := totalLoss / float64(period)
-			avgLoss *= -1
-			if avgLoss == 0 {
-				avgLoss = 1
-			}
-			RSI := 100 - 100/(1+(avgGain/avgLoss))
-			if RSI < 0 || RSI > 100 {
-				fmt.Println(" Error  RSI : ", RSI)
-
-			}
-			fmt.Println("   RSI : ", RSI)
-			if isOrderExecuted == true {
-				fmt.Println("Order alread executed")
-				return
-			}
-			if RSI >= 70 {
-				isOrderExecuted = true
-				//sell
-			} else if RSI <= 30 {
-				isOrderExecuted = true
-				//buy
-			}
-			// fmt.Printf("\nResponse Body: %v", string(resp.Body())) // or resp.String() or string(resp.Body())
-			// respString := string(resp.Body())
-			// rawResp := string(resp.Body())
-			// respData := rawResp[2 : len(rawResp)-2]
-			// dataSlice := strings.Split(respData, ",")
-			// rawOpeningStr := dataSlice[1][1 : len(dataSlice[1])-1]
-			// rawClosingStr := dataSlice[4][1 : len(dataSlice[1])-1]
-			// fmt.Println("rawOpeningStr : ", rawOpeningStr)
-
-			// openingPrice, err := strconv.ParseFloat(rawOpeningStr, 32)
-			// closingPrice, err := strconv.ParseFloat(rawClosingStr, 32)
-			// diff := closingPrice - openingPrice
-			// fmt.Println("Diff : ", diff)
-			// clear <- diff
-			////////////////////////////////////////////////////////////
-
-		}()
-		// currentValue := <-clear
-		// fmt.Println("current value ", currentValue)
-		// if currentValue > 0 {
-		// 	fmt.Println("current value at gain")
-
-		// 	gainList = append(gainList, currentValue)
-		// } else {
-		// 	fmt.Println("current value at loss")
-
-		// 	lossList = append(lossList, currentValue)
-
-		// }
-		// fmt.Println("len(gainList) :", len(gainList))
-		// fmt.Println("len(lossList) : ", len(lossList))
-
-		// if len(gainList)+len(lossList) == period {
-		// 	gainSum := 0.0
-		// 	lossSum := 0.0
-		// 	for i, s := range gainList {
-		// 		fmt.Println(i, s)
-		// 		gainSum += s
+		// 	klines, err := client.NewKlinesService().Symbol(symbol).Limit(period).Interval("1m").Do(context.Background())
+		// 	if err != nil {
+		// 		fmt.Println(err)
+		// 		return
 		// 	}
-		// 	if len(gainList) == 0 {
-		// 		gainList = append(gainList, 0)
+
+		// 	gainList := make([]float64, 0)
+		// 	lossList := make([]float64, 0)
+		// 	totalGain := 0.0
+		// 	totalLoss := 0.0
+		// 	// fmt.Println("kline length ", len(klines))
+		// 	for _, k := range klines {
+
+		// 		startPrice, _ := strconv.ParseFloat(k.Open, 64)
+		// 		endPrice, _ := strconv.ParseFloat(k.Close, 64)
+		// 		diff := endPrice - startPrice
+
+		// 		if diff > 0 {
+		// 			gainList = append(gainList, diff)
+		// 		} else {
+		// 			lossList = append(lossList, diff)
+
+		// 		}
 
 		// 	}
-		// 	avgGain := gainSum / float64(len(gainList))
-		// 	for i, s := range lossList {
-		// 		fmt.Println(i, s)
-		// 		lossSum += s
-		// 	}
-		// 	if len(lossList) == 0 {
-		// 		lossList = append(lossList, 0)
 
+		// 	for _, elem := range gainList {
+		// 		totalGain += elem
 		// 	}
-		// 	avgLoss := lossSum / float64(len(lossList))
+		// 	for _, elem := range lossList {
+		// 		totalLoss += elem
+		// 	}
+
+		// 	avgGain := totalGain / float64(period)
+		// 	avgLoss := totalLoss / float64(period)
 		// 	avgLoss *= -1
-		// 	fmt.Println("Average gain : ", avgGain)
-		// 	fmt.Println("Average loss : ", avgLoss)
 		// 	if avgLoss == 0 {
-		// 		fmt.Println("avg loss is zero.Caculation voided")
-		// 	} else {
-		// 		RSI := 100 - (100 / (1 + (avgGain / avgLoss)))
-		// 		fmt.Println("RSI : ", RSI)
+		// 		avgLoss = 1
 		// 	}
-		// 	gainList = gainList[:0]
-		// 	lossList = lossList[:0]
-		// }
+		// 	RSI := 100 - 100/(1+(avgGain/avgLoss))
+		// 	if RSI < 0 || RSI > 100 {
+		// 		fmt.Println(" Error  RSI : ", RSI)
+
+		// 	}
+		// 	fmt.Println("   RSI : ", RSI)
+		// 	if isOrderExecuted == true {
+		// 		fmt.Println("Order alread executed. No repeated action will be done.")
+		// 		return
+		// 	}
+		// 	if RSI >= 70 {
+		// 		isOrderExecuted = true
+		// 		//sell
+		// 	} else if RSI <= 63 {
+		// 		isOrderExecuted = true
+		// 		//buy
+		// 	}
+
+		// }()
+
 	}, 60000, false)
-
-	// If we wanted to we had a long running task (i.e. network call)
-	// we could pass in true as the last argument to run the function
-	// as a goroutine
-
-	// Some artificial work here to wait till we've printed
-	// 5 times
-	// for {
-	// 	if printed == 5 {
-	// 		// Stop the ticket, ending the interval go routine
-	// 		stop <- true
-	// 		return
-	// 	}
-	// }
 
 }

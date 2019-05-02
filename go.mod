@@ -3,7 +3,9 @@ module go-contacts
 require (
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/sprig v2.18.0+incompatible
+	github.com/adshao/go-binance v0.0.0-20181012004556-e9a4ac01ca48
 	github.com/aokoli/goutils v1.1.0 // indirect
+	github.com/bitly/go-simplejson v0.5.0 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/domodwyer/mailyak v3.1.1+incompatible
 	github.com/gin-contrib/cors v0.0.0-20190301062745-f9e10995c85a
@@ -15,6 +17,7 @@ require (
 	github.com/golang/protobuf v1.3.0 // indirect
 	github.com/google/uuid v1.1.1 // indirect
 	github.com/gorilla/mux v1.6.2
+	github.com/gorilla/websocket v1.4.0 // indirect
 	github.com/imdario/mergo v0.3.7
 	github.com/jaytaylor/html2text v0.0.0-20180606194806-57d518f124b0
 	github.com/jinzhu/gorm v1.9.1
@@ -28,6 +31,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/russross/blackfriday/v2 v2.0.1
 	github.com/satori/go.uuid v1.2.0
+	github.com/shopspring/decimal v0.0.0-20180709203117-cd690d0c9e24
 	github.com/stretchr/objx v0.1.1 // indirect
 	github.com/stretchr/testify v1.3.0
 	github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43 // indirect
